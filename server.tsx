@@ -1,4 +1,43 @@
-// Replace these bottom lines in server.tsx:
+import { Hono } from 'hono'
+import { serveStatic } from 'hono/bun'
+import customRoutes from './custom-routes'
+import { createToolsHandlers } from '@shogo-ai/sdk/tools/server'
+
+const app = new Hono()
+
+// CORS — manual middleware so the wildcard always propagates
+app.use('*', async (c, next) => {
+  c.res.headers.set('Access-Control-Allow-Origin', '*')
+  c.res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
+  c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  if (c.req.method === 'OPTIONS') return c.text('', 204)
+  await next()
+})
+
+app.onError((err, c) => {
+  console.error('[SERVER ERROR]', err.message, err.stack?.substring(0, 500))
+  return c.json({ error: err.message }, 500)
+})
+
+// Health check endpoint
+app.get('/health', (c) => c.json({ ok: true, timestamp: new Date().toISOString() }))
+
+// CRUD routes
+try {
+  const { createAllRoutes } = await import('./src/generated')
+  const { prisma } = await import('./src/lib/db')
+  app.route('/api', createAllRoutes(prisma))
+} catch {
+  // No generated routes yet
+}
+
+// Custom API routes
+app.route('/api', customRoutes)
+
+// Tools proxy
+const tools = createToolsHandlers({})
+app.post('/api/tools/execute', (c) => tools.execute(c.req.raw))
+app.get('/api/tools/schemas', (c) => tools.list(c.req.raw))
 
 // Serve static files in production
 app.use('/*', serveStatic({ root: './dist' }))
@@ -7,7 +46,6 @@ app.get('*', serveStatic({ path: './dist/index.html', root: './dist' }))
 const port = Number(process.env.PORT) || 3001
 console.log(`🚀 Server running on port ${port}`)
 
-// Add hostname: '0.0.0.0' so Render can route external web traffic to it
 Bun.serve({ 
   port, 
   hostname: '0.0.0.0', 
