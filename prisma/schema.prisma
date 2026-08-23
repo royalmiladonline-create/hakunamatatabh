@@ -1,0 +1,157 @@
+// SHOGO:CUSTOM-START prisma-header
+// Managed by Shogo. Do not add a datasource `url` or change the generator `provider` — the database URL is configured in prisma.config.ts (Prisma 7+).
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+// SHOGO:CUSTOM-END
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  pin       String   @unique
+  role      String   @default("STAFF") // STAFF, STAFF_PLUS, ADMIN
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("users")
+}
+
+model MenuCategory {
+  id           String   @id @default(cuid())
+  name         String
+  nameAr       String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  items MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  nameAr      String?
+  description String?
+  price       Float
+  currency    String   @default("BD") // BD or FILLS
+  isAvailable Boolean  @default(true)
+  image       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  categoryId String
+  category   MenuCategory @relation(fields: [categoryId], references: [id])
+
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Table {
+  id        String   @id @default(cuid())
+  number    Int      @unique
+  capacity  Int      @default(4)
+  status    String   @default("AVAILABLE") // AVAILABLE, OCCUPIED, RESERVED
+  section   String   @default("indoor") // indoor, outdoor
+  createdAt DateTime @default(now()) @map("created_at")
+
+  orders Order[]
+
+  @@map("tables")
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  orderNumber     String   @unique
+  type            String   @default("DINE_IN") // DINE_IN, TAKEAWAY, DELIVERY
+  status          String   @default("PENDING") // PENDING, CONFIRMED, PREPARING, READY, SERVED, COMPLETED, CANCELLED
+  subtotal        Float    @default(0)
+  tax             Float    @default(0)
+  total           Float    @default(0)
+  paymentMethod   String?  // CASH, CARD, ONLINE
+  paymentStatus   String   @default("PENDING") // PENDING, PAID, REFUNDED
+  deliveryPlatform String? // TAKEAWAY, TALABAT, KEETA
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  completedAt     DateTime?
+
+  tableId String?
+  table   Table?  @relation(fields: [tableId], references: [id])
+
+  staffId String
+  staff   User   @relation(fields: [staffId], references: [id])
+
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  quantity Int    @default(1)
+  price    Float
+  notes    String?
+
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  quantity    Float    @default(0)
+  unit        String   @default("kg") // kg, liters, pcs, etc.
+  minStock    Float    @default(10)
+  cost        Float    @default(0)
+  supplier    String?
+  lastUpdated DateTime @default(now()) @map("last_updated")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  transactions InventoryTransaction[]
+
+  @@map("inventory_items")
+}
+
+model InventoryTransaction {
+  id        String   @id @default(cuid())
+  type      String   // PURCHASE, USAGE, ADJUSTMENT
+  quantity  Float
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  itemId String
+  item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@map("inventory_transactions")
+}
+
+model DailyReport {
+  id             String   @id @default(cuid())
+  date           DateTime @unique
+  totalOrders    Int      @default(0)
+  totalRevenue   Float    @default(0)
+  cashTotal      Float    @default(0)
+  cardTotal      Float    @default(0)
+  onlineTotal    Float    @default(0)
+  deliveryOrders Int      @default(0)
+  dineInOrders   Int      @default(0)
+  takeawayOrders Int      @default(0)
+  generatedAt    DateTime @default(now()) @map("generated_at")
+
+  @@map("daily_reports")
+}
