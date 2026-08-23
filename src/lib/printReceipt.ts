@@ -1,7 +1,8 @@
 export interface PrintOrder {
   orderNumber: string
   type: string
-  createdAt: string
+  created_at: string
+  createdAt?: string
   subtotal: number
   tax: number
   total: number
@@ -12,7 +13,8 @@ export interface PrintOrder {
 }
 
 export function printReceipt(order: PrintOrder) {
-  const orderDate = new Date(order.createdAt).toLocaleString('en-GB', {
+  const dateStr = order.created_at || order.createdAt || ''
+  const orderDate = new Date(dateStr).toLocaleString('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })

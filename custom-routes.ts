@@ -248,6 +248,36 @@ app.patch('/pos/orders/:id', async (c) => {
   return c.json({ order: shaped })
 })
 
+app.delete('/pos/orders/:id', async (c) => {
+  const id = c.req.param('id')
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, tableId')
+    .eq('id', id)
+    .single()
+
+  if (!order) return c.json({ error: 'Order not found' }, 404)
+
+  await supabase.from('order_items').delete().eq('orderId', id)
+  await supabase.from('orders').delete().eq('id', id)
+
+  if (order.tableId) {
+    const { data: otherOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('tableId', order.tableId)
+      .not('status', 'in', '(COMPLETED,CANCELLED)')
+      .neq('id', id)
+
+    if (!otherOrders || otherOrders.length === 0) {
+      await supabase.from('tables').update({ status: 'AVAILABLE' }).eq('id', order.tableId)
+    }
+  }
+
+  return c.json({ success: true })
+})
+
 // ===== POS: TABLES =====
 
 app.get('/pos/tables', async (c) => {

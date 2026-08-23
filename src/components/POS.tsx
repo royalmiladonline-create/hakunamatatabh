@@ -56,7 +56,7 @@ interface Order {
   paymentStatus: string
   deliveryPlatform?: string
   notes?: string
-  createdAt: string
+  created_at: string
   completedAt?: string
   table?: { number: number }
   staff: { name: string }
@@ -968,6 +968,17 @@ function ActiveOrders({ user }: { user: User }) {
     }
   }
 
+  const deleteOrder = async (orderId: string) => {
+    if (!confirm('Permanently delete this order? This cannot be undone.')) return
+    try {
+      const res = await fetch(`/api/pos/orders/${orderId}`, { method: 'DELETE' })
+      if (res.ok) fetchOrders()
+      else alert('Failed to delete order')
+    } catch (err) {
+      alert('Failed to delete order')
+    }
+  }
+
   const statusColors: Record<string, string> = {
     PENDING: 'border-yellow-300 bg-yellow-50',
     PREPARING: 'border-blue-300 bg-blue-50',
@@ -1125,9 +1136,9 @@ function ActiveOrders({ user }: { user: User }) {
                     </button>
                     {user.role === 'ADMIN' && (
                       <button
-                        onClick={() => { if (confirm('Cancel this order?')) updateStatus(order.id, 'CANCELLED') }}
+                        onClick={() => deleteOrder(order.id)}
                         className="px-3 py-2 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200 transition"
-                        title="Cancel Order"
+                        title="Delete Order"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1152,12 +1163,23 @@ function ActiveOrders({ user }: { user: User }) {
                           {order.total.toFixed(3)} BD • {order.paymentMethod || 'N/A'}
                         </p>
                       </div>
-                      <button
-                        onClick={() => printReceipt(order)}
-                        className="px-2 py-1 text-xs bg-violet-100 text-violet-700 rounded hover:bg-violet-200 transition"
-                      >
-                        🖨️
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => printReceipt(order)}
+                          className="px-2 py-1 text-xs bg-violet-100 text-violet-700 rounded hover:bg-violet-200 transition"
+                        >
+                          🖨️
+                        </button>
+                        {user.role === 'ADMIN' && (
+                          <button
+                            onClick={() => deleteOrder(order.id)}
+                            className="px-2 py-1 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200 transition"
+                            title="Delete Order"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
